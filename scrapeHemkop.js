@@ -38,7 +38,8 @@ async function scrapeHemkop() {
         const volume =
           item
             .querySelector('[data-testid="display-volume"]')
-            ?.innerText.trim() ?? null;
+            ?.innerText.trim()
+            .replace(/(ca)(\d+)/g, "$1 $2") ?? null;
         const price =
           item
             .querySelector('[data-testid="price-container"]')
@@ -52,7 +53,7 @@ async function scrapeHemkop() {
           item
             .querySelector(".sc-7337ea71-1")
             ?.innerText.replace(/[\n\r\t\\]/g, "")
-            .replace(/(för)(\d)/, "1$ 2$") ?? null;
+            .replace(/(för)(\d+)/g, "$1 $2") ?? null;
 
         return {
           name,
