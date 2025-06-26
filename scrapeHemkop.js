@@ -51,7 +51,8 @@ async function scrapeHemkop() {
         const getMorePrice =
           item
             .querySelector(".sc-7337ea71-1")
-            ?.innerText.replace(/[\n\r\t\\]/g, "") ?? null;
+            ?.innerText.replace(/[\n\r\t\\]/g, "")
+            .replace(/(för)(\d)/, "1$ 2$") ?? null;
 
         return {
           name,
