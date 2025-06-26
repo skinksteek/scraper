@@ -1,0 +1,10 @@
+# Node
+node_modules/
+.env
+dist/
+.history/
+*.log
+
+# OS-specifikt
+.DS_Store
+Thumbs.db
