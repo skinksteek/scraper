@@ -5,11 +5,17 @@ import "dotenv/config";
 async function scrapeCityGross() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
+
   await page.goto("https://www.citygross.se/matvaror/veckans-erbjudande", {
     waitUntil: "domcontentloaded",
   });
 
   await page.waitForSelector(".product-card-container");
+
+  await page.evaluate(() => {
+    window.scrollBy(0, document.body.scrollHeight);
+  });
+  await page.waitForTimeout(2000);
 
   const products = await page.$$eval(".product-card-container", (items) =>
     items.map((item) => {
@@ -17,10 +23,32 @@ async function scrapeCityGross() {
       const volume = item.querySelector("p")?.innerText.trim() ?? null;
       const price = item.querySelector(".sc-eVZGIO")?.innerText.trim() ?? null;
 
+      const img = item.querySelector("img");
+      let imageURL = null;
+
+      if (img) {
+        const src = img.getAttribute("src");
+        const srcset = img.getAttribute("srcset");
+
+        if (src) {
+          imageURL = src.startsWith("/")
+            ? "https://www.citygross.se" + src
+            : src;
+        } else if (srcset) {
+          const firstSrc = srcset.split(",")[0]?.trim().split(" ")[0];
+          imageURL = firstSrc?.startsWith("/")
+            ? "https://www.citygross.se" + firstSrc
+            : firstSrc;
+        }
+
+        if (!imageURL) {
+          console.log("Saknar imageURL för produkt:", name);
+          console.log("IMG HTML:", img.outerHTML);
+        }
+      }
+
       let getMorePrice =
         item.querySelector(".sc-cLNonn")?.innerText.trim() ?? null;
-
-      // Vissa produkter har nått av orden nedan bredvid sitt pris och detta vill vi inte ha
       const blacklist = ["kampanj", "prio-pris", "klipp!"];
       if (
         getMorePrice &&
@@ -43,9 +71,22 @@ async function scrapeCityGross() {
         volume,
         getMorePrice,
         compareOrdinaryPrice,
+        imageURL,
       };
     })
   );
+
+  // console.log("Antal produkter hittade:", products.length);
+
+  // products.forEach((product, i) => {
+  //   console.log(`\nProdukt ${i + 1}:`);
+  //   console.log("Namn:", product.name);
+  //   console.log("Pris:", product.price);
+  //   console.log("Volym:", product.volume);
+  //   console.log("Kampanjpris:", product.getMorePrice);
+  //   console.log("Jämförpris:", product.compareOrdinaryPrice);
+  //   console.log("Bild:", product.imageURL);
+  // });
 
   const { error } = await supabase.from("products").insert(products);
   if (error) {
@@ -57,4 +98,6 @@ async function scrapeCityGross() {
   await browser.close();
 }
 
-scrapeCityGross().catch(console.error);
+scrapeCityGross().catch((err) => {
+  console.error("Fel under scraping:", err.message);
+});
