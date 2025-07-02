@@ -26,8 +26,6 @@ async function scrapeHemkop() {
   }
 
   const products = await page.$$eval(
-    // Väljer alla HTML-element som innehåller detta namn,
-    // det vill säga alla produkter i detta fall
     '[data-testid="vertical-product-container"]',
     (items) => {
       return items.map((item) => {
@@ -55,6 +53,7 @@ async function scrapeHemkop() {
             ?.innerText.replace(/[\n\r\t\\]/g, "")
             .replace(/(för)(\d+)/g, "$1 $2") ?? null;
 
+        const imageURL = item.querySelector("img")?.src ?? null;
         return {
           name,
           price,
@@ -62,6 +61,7 @@ async function scrapeHemkop() {
           volume,
           getMorePrice,
           compareOrdinaryPrice,
+          imageURL,
         };
       });
     }
