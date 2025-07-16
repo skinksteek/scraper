@@ -94,22 +94,22 @@ async function scrapeCityGross() {
 
   console.log("Antal produkter hittade:", products.length);
 
-  products.forEach((product, i) => {
-    console.log(`\nProdukt ${i + 1}:`);
-    console.log("Namn:", product.name);
-    console.log("Pris:", product.price);
-    console.log("Volym:", product.volume);
-    console.log("Kampanjpris:", product.getMorePrice);
-    console.log("Jämförpris:", product.compareOrdinaryPrice);
-    console.log("Bild:", product.imageURL);
-  });
+  // products.forEach((product, i) => {
+  //   console.log(`\nProdukt ${i + 1}:`);
+  //   console.log("Namn:", product.name);
+  //   console.log("Pris:", product.price);
+  //   console.log("Volym:", product.volume);
+  //   console.log("Kampanjpris:", product.getMorePrice);
+  //   console.log("Jämförpris:", product.compareOrdinaryPrice);
+  //   console.log("Bild:", product.imageURL);
+  // });
 
-  // const { error } = await supabase.from("products").insert(products);
-  // if (error) {
-  //   console.error("Fel vid insättning:", error.message);
-  // } else {
-  //   console.log("Produkter insatta");
-  // }
+  const { error } = await supabase.from("products").insert(products);
+  if (error) {
+    console.error("Fel vid insättning:", error.message);
+  } else {
+    console.log("Produkter insatta");
+  }
 
   await browser.close();
 }
