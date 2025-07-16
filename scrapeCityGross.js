@@ -10,12 +10,28 @@ async function scrapeCityGross() {
     waitUntil: "domcontentloaded",
   });
 
-  await page.waitForSelector(".product-card-container");
+  let previousCount = 0;
+  let maxTries = 5;
+  let tries = 0;
 
-  await page.evaluate(() => {
-    window.scrollBy(0, document.body.scrollHeight);
-  });
-  await page.waitForTimeout(2000);
+  while (tries < maxTries) {
+    const currentCount = await page.$$eval(
+      ".product-card-container",
+      (els) => els.length
+    );
+
+    if (currentCount > previousCount) {
+      previousCount = currentCount;
+      tries = 0;
+    } else {
+      tries++;
+    }
+
+    await page.evaluate(() => {
+      window.scrollBy(0, window.innerHeight);
+    });
+    await page.waitForTimeout(1000);
+  }
 
   const products = await page.$$eval(".product-card-container", (items) =>
     items.map((item) => {
@@ -76,24 +92,24 @@ async function scrapeCityGross() {
     })
   );
 
-  // console.log("Antal produkter hittade:", products.length);
+  console.log("Antal produkter hittade:", products.length);
 
-  // products.forEach((product, i) => {
-  //   console.log(`\nProdukt ${i + 1}:`);
-  //   console.log("Namn:", product.name);
-  //   console.log("Pris:", product.price);
-  //   console.log("Volym:", product.volume);
-  //   console.log("Kampanjpris:", product.getMorePrice);
-  //   console.log("Jämförpris:", product.compareOrdinaryPrice);
-  //   console.log("Bild:", product.imageURL);
-  // });
+  products.forEach((product, i) => {
+    console.log(`\nProdukt ${i + 1}:`);
+    console.log("Namn:", product.name);
+    console.log("Pris:", product.price);
+    console.log("Volym:", product.volume);
+    console.log("Kampanjpris:", product.getMorePrice);
+    console.log("Jämförpris:", product.compareOrdinaryPrice);
+    console.log("Bild:", product.imageURL);
+  });
 
-  const { error } = await supabase.from("products").insert(products);
-  if (error) {
-    console.error("Fel vid insättning:", error.message);
-  } else {
-    console.log("Produkter insatta");
-  }
+  // const { error } = await supabase.from("products").insert(products);
+  // if (error) {
+  //   console.error("Fel vid insättning:", error.message);
+  // } else {
+  //   console.log("Produkter insatta");
+  // }
 
   await browser.close();
 }
