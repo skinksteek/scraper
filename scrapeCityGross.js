@@ -56,7 +56,8 @@ async function scrapeCityGross() {
       let compareOrdinaryPrice =
         item
           .querySelector(".push-to-bottom")
-          ?.innerText.replace(/[\n\r\t\\]/g, "") ?? null;
+          ?.innerText.replace(/[\n\r\t\\]/g, "")
+          .replace(/(Jfr\s*pris)/i, "\n$1") ?? null;
 
       const img = item.querySelector("img");
       let imageURL = null;
