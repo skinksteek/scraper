@@ -39,9 +39,8 @@ async function scrapeHemkop() {
             ?.innerText.trim()
             .replace(/(ca)(\d+)/g, "$1 $2") ?? null;
         const price =
-          item
-            .querySelector('[data-testid="price-container"]')
-            ?.innerText.trim() ?? null;
+          item.querySelector('[data-testid="price-text"]')?.innerText.trim() ??
+          null;
         const compareOrdinaryPrice =
           item
             .querySelector(".sc-dec700a6-6")
@@ -66,9 +65,16 @@ async function scrapeHemkop() {
       });
     }
   );
+
+  const uniqueProducts = Array.from(
+    new Map(products.map((p) => [`${p.name}|${p.volume}`, p])).values()
+  );
+
   console.log(products.length);
   console.log(products.slice(0, 3));
-  const { error } = await supabase.from("products").insert(products);
+  console.log("Antal innan dubblettkontroll:", products.length);
+  console.log("Antal efter dubblettkontroll:", uniqueProducts.length);
+  const { error } = await supabase.from("products").insert(uniqueProducts);
   if (error) {
     console.error("Fel vid insättning:", error.message);
   } else {
