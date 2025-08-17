@@ -2,15 +2,15 @@ import { chromium } from "playwright";
 import { supabase } from "./lib/supabaseClient.js";
 import "dotenv/config";
 
-async function scrapeHemkop() {
+export default async function scrapeHemkop() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
 
   // Går till Hemköps erbjudandesida och väntar tills sidan laddat klart sin HTML
   await page.goto("https://www.hemkop.se/artikel/alltid-bra-pris", {
+    timeout: 60000,
     waitUntil: "domcontentloaded",
   });
-
   let previousHeight = 0;
 
   // Startar en loop som körs tills inga fler produkter laddas in
@@ -65,22 +65,18 @@ async function scrapeHemkop() {
       });
     }
   );
-
   const uniqueProducts = Array.from(
     new Map(products.map((p) => [`${p.name}|${p.volume}`, p])).values()
   );
-
   console.log(products.length);
   console.log(products.slice(0, 3));
   console.log("Antal innan dubblettkontroll:", products.length);
   console.log("Antal efter dubblettkontroll:", uniqueProducts.length);
-  const { error } = await supabase.from("products").insert(uniqueProducts);
-  if (error) {
-    console.error("Fel vid insättning:", error.message);
-  } else {
-    console.log("Produkter insatta");
-  }
+
+  console.log(`Hemköp: ${uniqueProducts.length} unika produkter hittade`);
 
   await browser.close();
+  return uniqueProducts;
 }
+
 scrapeHemkop().catch(console.error);

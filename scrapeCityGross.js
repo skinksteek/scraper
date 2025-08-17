@@ -1,8 +1,7 @@
 import { chromium } from "playwright";
-import { supabase } from "./lib/supabaseClient.js";
 import "dotenv/config";
 
-async function scrapeCityGross() {
+export default async function scrapeCityGross() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
 
@@ -96,25 +95,8 @@ async function scrapeCityGross() {
   );
 
   console.log("Antal produkter hittade:", products.length);
-
-  // products.forEach((product, i) => {
-  //   console.log(`\nProdukt ${i + 1}:`);
-  //   console.log("Namn:", product.name);
-  //   console.log("Pris för fler:", product.priceMultipleItems);
-  //   console.log("Pris:", product.price);
-  //   console.log("Volym:", product.volume);
-  //   console.log("Jämförpris:", product.compareOrdinaryPrice);
-  //   console.log("Bild:", product.imageURL);
-  // });
-
-  const { error } = await supabase.from("products").insert(products);
-  if (error) {
-    console.error("Fel vid insättning:", error.message);
-  } else {
-    console.log("Produkter insatta");
-  }
-
   await browser.close();
+  return products;
 }
 
 scrapeCityGross().catch((err) => {

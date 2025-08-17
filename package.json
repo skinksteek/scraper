@@ -10,7 +10,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "citygross": "node scrapeCityGross.js",
-    "hemkop": "node scrapeHemkop.js"
+    "hemkop": "node scrapeHemkop.js",
+    "main": "node index.js"
   },
   "keywords": [],
   "author": "",
