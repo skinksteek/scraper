@@ -94,7 +94,7 @@ export default async function scrapeCityGross() {
     })
   );
 
-  console.log("Antal produkter hittade:", products.length);
+  console.log("Antal CityGross produkter hittade:", products.length);
   await browser.close();
   return products;
 }

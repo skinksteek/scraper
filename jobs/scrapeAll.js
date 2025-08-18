@@ -1,6 +1,6 @@
-import { supabase } from "./lib/supabaseClient.js";
-import scrapeHemkop from "./scrapeHemkop.js";
-import scrapeCityGross from "./scrapeCityGross.js";
+import { supabase } from "../lib/supabaseClient.js";
+import scrapeHemkop from "../scrapers/scrapeHemkop.js";
+import scrapeCityGross from "../scrapers/scrapeCityGross.js";
 
 async function main() {
   const { error } = await supabase.rpc("reset_products");
@@ -8,7 +8,7 @@ async function main() {
     console.error("Kunde inte tömma tabellen:", error.message);
     return;
   }
-  console.log("Produkter rensade");
+  console.log("Befintliga produkter rensade..");
 
   const hemkopProducts = await scrapeHemkop();
   const cityGrossProducts = await scrapeCityGross();
@@ -21,7 +21,7 @@ async function main() {
     console.error("Fel vid insättning:", insertError.message);
   } else {
     console.log(
-      `Insättning lyckades - ${allProducts.length} produkter insatta.`
+      `Insättning lyckades - totalt ${allProducts.length} produkter insatta.`
     );
   }
 }

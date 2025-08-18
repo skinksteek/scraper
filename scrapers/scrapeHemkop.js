@@ -1,5 +1,4 @@
 import { chromium } from "playwright";
-import { supabase } from "./lib/supabaseClient.js";
 import "dotenv/config";
 
 export default async function scrapeHemkop() {
@@ -65,15 +64,11 @@ export default async function scrapeHemkop() {
       });
     }
   );
+  // Märkte att scrapingen fick i vissa fall med sig dubletter, detta förhindrar detta
   const uniqueProducts = Array.from(
     new Map(products.map((p) => [`${p.name}|${p.volume}`, p])).values()
   );
-  console.log(products.length);
-  console.log(products.slice(0, 3));
-  console.log("Antal innan dubblettkontroll:", products.length);
-  console.log("Antal efter dubblettkontroll:", uniqueProducts.length);
-
-  console.log(`Hemköp: ${uniqueProducts.length} unika produkter hittade`);
+  console.log(`Antal Hemköp produkter hittade: ${uniqueProducts.length}`);
 
   await browser.close();
   return uniqueProducts;
