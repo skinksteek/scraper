@@ -1,0 +1,33 @@
+name: scrape
+
+on:
+  # schedule:
+  #   - cron: "0 */6 * * *"   # var 6:e timme
+  workflow_dispatch:        # så du kan köra manuellt
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Playwright (Chromium + deps)
+        run: npx playwright install --with-deps
+
+      - name: Run scrape job
+        run: npm run scrape
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
