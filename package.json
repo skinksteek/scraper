@@ -9,8 +9,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "citygross": "node scrapeCityGross.js",
-    "hemkop": "node scrapeHemkop.js",
+    "citygross": "node scrapers/scrapeCityGross.js",
+    "hemkop": "node scrapers/scrapeHemkop.js",
     "scrape": "node jobs/scrapeAll.js"
   },
   "keywords": [],
