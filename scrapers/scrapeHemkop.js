@@ -1,11 +1,22 @@
 import { chromium } from "playwright";
-import "dotenv/config";
 
 export default async function scrapeHemkop() {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
 
-  // Går till Hemköps erbjudandesida och väntar tills sidan laddat klart sin HTML
+  const uaBase = process.env.BOT_USER_AGENT || "SimpleScraper/1.0";
+  const from = process.env.BOT_FROM || "linusigelstrom@gmail.com";
+  const note =
+    process.env.BOT_COMMENT ||
+    "Hobbyprojekt för att lära mig och förstå kod bättre, för att sedan försöka landa ett jobb";
+
+  const context = await browser.newContext({
+    userAgent: `${uaBase} (+mailto:${from}; purpose=${note}) Playwright`,
+    extraHTTPHeaders: from ? { From: from } : {},
+    locale: "sv-SE",
+  });
+
+  const page = await context.newPage();
+
   await page.goto("https://www.hemkop.se/artikel/alltid-bra-pris", {
     timeout: 60000,
     waitUntil: "domcontentloaded",
@@ -70,6 +81,7 @@ export default async function scrapeHemkop() {
   );
   console.log(`Antal Hemköp produkter hittade: ${uniqueProducts.length}`);
 
+  await context.close();
   await browser.close();
   return uniqueProducts;
 }

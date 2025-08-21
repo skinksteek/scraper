@@ -31,3 +31,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BOT_USER_AGENT: ${{ vars.BOT_USER_AGENT }}
+          BOT_FROM: ${{ vars.BOT_FROM }}
+          BOT_COMMENT: ${{ vars.BOT_COMMENT }}

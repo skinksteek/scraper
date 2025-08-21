@@ -1,9 +1,21 @@
 import { chromium } from "playwright";
-import "dotenv/config";
 
 export default async function scrapeCityGross() {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+
+  const uaBase = process.env.BOT_USER_AGENT || "SimpleScraper/1.0";
+  const from = process.env.BOT_FROM || "you@example.com";
+  const note =
+    process.env.BOT_COMMENT ||
+    "Hobbyprojekt för att lära mig och förstå kod för att sedan försöka landa ett jobb";
+
+  const context = await browser.newContext({
+    userAgent: `${uaBase} (+mailto:${from}; purpose=${note}) Playwright`,
+    extraHTTPHeaders: from ? { From: from } : {},
+    locale: "sv-SE",
+  });
+
+  const page = await context.newPage();
 
   const BASE_URL = "https://www.citygross.se/matvaror/veckans-erbjudande";
   const LAST_PAGE = 15;
@@ -120,11 +132,13 @@ export default async function scrapeCityGross() {
     console.log(`Sida ${pageNum}: hittade ${pageProducts.length} produkter`);
     products.push(...pageProducts);
   }
+
   const uniqueProducts = Array.from(
     new Map(products.map((p) => [`${p.name}|${p.volume}`, p])).values()
   );
 
   console.log("Antal CityGross produkter hittade:", uniqueProducts.length);
+  await context.close();
   await browser.close();
   return uniqueProducts;
 }
@@ -132,5 +146,3 @@ export default async function scrapeCityGross() {
 scrapeCityGross().catch((err) => {
   console.error("Fel under scraping:", err.message);
 });
-
-scrapeCityGross().catch(console.error);
