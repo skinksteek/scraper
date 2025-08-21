@@ -7,11 +7,17 @@ export default async function scrapeCityGross() {
   const from = process.env.BOT_FROM || "you@example.com";
   const note =
     process.env.BOT_COMMENT ||
-    "Hobbyprojekt för att lära mig och förstå kod för att sedan försöka landa ett jobb";
+    "Hobbyprojekt for att lara mig och forsta kod for att sedan forsoka landa ett jobb";
+
+  const chromeUA =
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
   const context = await browser.newContext({
-    userAgent: `${uaBase} (+mailto:${from}; purpose=${note}) Playwright`,
-    extraHTTPHeaders: from ? { From: from } : {},
+    userAgent: `${chromeUA} ${uaBase}`,
+    extraHTTPHeaders: {
+      ...(from ? { From: from } : {}),
+      "X-Bot-Purpose": encodeURIComponent(note).slice(0, 200),
+    },
     locale: "sv-SE",
   });
 
@@ -28,6 +34,8 @@ export default async function scrapeCityGross() {
     await page.goto(url, {
       waitUntil: "domcontentloaded",
     });
+    console.log("Laddad URL:", page.url());
+    console.log("Titel:", await page.title());
 
     const appeared = await page
       .waitForSelector(".product-card-container", { timeout: 5000 })
