@@ -34,8 +34,6 @@ export default async function scrapeCityGross() {
     await page.goto(url, {
       waitUntil: "domcontentloaded",
     });
-    console.log("Laddad URL:", page.url());
-    console.log("Titel:", await page.title());
 
     const appeared = await page
       .waitForSelector(".product-card-container", { timeout: 5000 })
