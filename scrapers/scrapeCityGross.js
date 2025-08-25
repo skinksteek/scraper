@@ -79,7 +79,7 @@ export default async function scrapeCityGross() {
         const productURL = item.querySelector("a")?.href ?? null;
 
         let price =
-          item.querySelector("div.sc-islFiG")?.innerText.trim() ?? null;
+          item.querySelector("div.sc-hbWBzy")?.innerText.trim() ?? null;
         if (price) {
           const match = price.match(/.*pris.*$/i);
           price = match ? match[0].trim() : price.trim();
@@ -87,7 +87,7 @@ export default async function scrapeCityGross() {
         }
 
         let priceMultipleItems =
-          item.querySelector("div.sc-kSGOQU")?.innerText.trim() ?? null;
+          item.querySelector("div.sc-gBInCZ")?.innerText.trim() ?? null;
         if (priceMultipleItems) {
           priceMultipleItems = priceMultipleItems.replace(/^kampanj\s*/i, "");
           priceMultipleItems = priceMultipleItems.replace(/^klipp!\s*/i, "");
