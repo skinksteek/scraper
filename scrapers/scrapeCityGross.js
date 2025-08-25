@@ -7,7 +7,7 @@ export default async function scrapeCityGross() {
   const from = process.env.BOT_FROM || "you@example.com";
   const note =
     process.env.BOT_COMMENT ||
-    "Hobbyprojekt for att lara mig och forsta kod for att sedan forsoka landa ett jobb";
+    "Hobbyprojekt för att lära mig och förstå kod bättre, för att sedan försöka landa ett jobb";
 
   const chromeUA =
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -76,6 +76,7 @@ export default async function scrapeCityGross() {
       items.map((item) => {
         const name = item.querySelector("h3")?.innerText.trim() ?? null;
         const volume = item.querySelector("p")?.innerText.trim() ?? null;
+        const productURL = item.querySelector("a")?.href ?? null;
 
         let price =
           item.querySelector("div.sc-islFiG")?.innerText.trim() ?? null;
@@ -131,6 +132,7 @@ export default async function scrapeCityGross() {
           compareOrdinaryPrice,
           imageURL,
           priceMultipleItems,
+          productURL,
         };
       })
     );
