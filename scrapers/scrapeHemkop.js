@@ -48,6 +48,7 @@ export default async function scrapeHemkop() {
             .querySelector('[data-testid="display-volume"]')
             ?.innerText.trim()
             .replace(/(ca)(\d+)/g, "$1 $2") ?? null;
+        const productURL = item.querySelector("a")?.href ?? null;
         const price =
           item.querySelector('[data-testid="price-text"]')?.innerText.trim() ??
           null;
@@ -71,6 +72,7 @@ export default async function scrapeHemkop() {
           getMorePrice,
           compareOrdinaryPrice,
           imageURL,
+          productURL,
         };
       });
     }
