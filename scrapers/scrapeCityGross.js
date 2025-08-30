@@ -125,11 +125,10 @@ export default async function scrapeCityGross() {
             console.log("IMG HTML:", img.outerHTML);
           }
         }
-        const priceWithCurrency = price ? `${price} kr` : null;
 
         return {
           name,
-          price: priceWithCurrency,
+          price,
           store: "CityGross",
           volume,
           compareOrdinaryPrice,
