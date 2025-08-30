@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { parsePriceSv } from "./utils/price.js";
 
 export default async function scrapeHemkop() {
   const browser = await chromium.launch({ headless: true });
@@ -14,78 +15,108 @@ export default async function scrapeHemkop() {
     extraHTTPHeaders: from ? { From: from } : {},
     locale: "sv-SE",
   });
-
   const page = await context.newPage();
 
   await page.goto("https://www.hemkop.se/artikel/alltid-bra-pris", {
     timeout: 60000,
     waitUntil: "domcontentloaded",
   });
-  let previousHeight = 0;
 
   // Startar en loop som körs tills inga fler produkter laddas in
-  // loopen fortsätter att scrolla neråt för att ladda in samtliga produkter,
-  //  tills att det inte går att scrolla mer
-  while (true) {
-    const currentHeight = await page.evaluate(() => document.body.scrollHeight);
-    if (currentHeight === previousHeight) break;
-    previousHeight = currentHeight;
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  // // loopen fortsätter att scrolla neråt för att ladda in samtliga produkter,
+  // // tills att det inte går att scrolla mer
 
-    await page.waitForTimeout(3000);
+  let prevH = 0;
+  while (true) {
+    const h = await page.evaluate(() => document.body.scrollHeight);
+    if (h === prevH) break;
+    prevH = h;
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(1200);
   }
 
-  const products = await page.$$eval(
+  const rawProducts = await page.$$eval(
     '[data-testid="vertical-product-container"]',
-    (items) => {
-      return items.map((item) => {
-        const name =
-          item
-            .querySelector('[data-testid="product-title"]')
-            ?.innerText.trim() ?? null;
+    (items) =>
+      items.map((item) => {
+        const q = (sel) => item.querySelector(sel);
+        const qt = (sel) => q(sel)?.textContent?.trim() ?? null;
+
+        const name = qt('[data-testid="product-title"]');
         const volume =
-          item
-            .querySelector('[data-testid="display-volume"]')
-            ?.innerText.trim()
-            .replace(/(ca)(\d+)/g, "$1 $2") ?? null;
-        const productURL = item.querySelector("a")?.href ?? null;
-        const price =
-          item.querySelector('[data-testid="price-text"]')?.innerText.trim() ??
-          null;
+          qt('[data-testid="display-volume"]')?.replace(
+            /(ca)(\d+)/gi,
+            "$1 $2"
+          ) ?? null;
+
+        const priceText = qt('[data-testid="price-text"]');
+
         const compareOrdinaryPrice =
-          item
-            .querySelector(".sc-dec700a6-6")
-            ?.innerText.replace(/[\n\r\t\\]/g, "") ?? null;
+          qt('[data-testid="compare-price"]') ||
+          (Array.from(item.querySelectorAll("*"))
+            .map((el) => el.textContent?.trim() || "")
+            .find((t) => /^jfr\s*pris/i.test(t)) ??
+            null);
 
-        const getMorePrice =
-          item
-            .querySelector(".sc-7337ea71-1")
-            ?.innerText.replace(/[\n\r\t\\]/g, "")
-            .replace(/(för)(\d+)/g, "$1 $2") ?? null;
+        const priceMultipleItems =
+          Array.from(item.querySelectorAll("*"))
+            .map((el) => el.textContent?.trim() || "")
+            .find((t) => /\d+\s*f[öo]r/i.test(t))
+            ?.match(/\d+\s*f[öo]r/i)?.[0] ?? null;
 
-        const imageURL = item.querySelector("img")?.src ?? null;
+        const a = q("a");
+        const productURL = a ? a.href || a.getAttribute("href") : null;
+        const img = q("img");
+        const imageURL = img ? img.src || img.getAttribute("src") : null;
+
         return {
           name,
-          price,
-          store: "Hemköp",
           volume,
-          getMorePrice,
+          priceText,
           compareOrdinaryPrice,
-          imageURL,
+          priceMultipleItems,
           productURL,
+          imageURL,
         };
-      });
-    }
+      })
   );
+
+  // Parsar till rätt format för supabase med hjälp av parsePriceSv (./utils/price.js)
+  const products = rawProducts.map((p) => {
+    const price = parsePriceSv(p.priceText);
+    const abs = (href) => {
+      try {
+        return href ? new URL(href, "https://www.hemkop.se").href : null;
+      } catch {
+        return href || null;
+      }
+    };
+
+    return {
+      name: p.name,
+      volume: p.volume,
+      price, // parsat värde
+      compareOrdinaryPrice: p.compareOrdinaryPrice,
+      priceMultipleItems: p.priceMultipleItems,
+      productURL: abs(p.productURL),
+      imageURL: abs(p.imageURL),
+      store: "Hemköp",
+    };
+  });
+
   // Märkte att scrapingen fick i vissa fall med sig dubletter, detta förhindrar detta
   const uniqueProducts = Array.from(
-    new Map(products.map((p) => [`${p.name}|${p.volume}`, p])).values()
+    new Map(
+      products.map((p) => [
+        `${(p.name || "").toLowerCase()}|${p.volume || ""}`,
+        p,
+      ])
+    ).values()
   );
+
   console.log(`Antal Hemköp produkter hittade: ${uniqueProducts.length}`);
 
   await context.close();
   await browser.close();
   return uniqueProducts;
 }
-
-scrapeHemkop().catch(console.error);
