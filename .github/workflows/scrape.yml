@@ -1,8 +1,11 @@
 name: scrape
 
 on:
-  # schedule:
-  #   - cron: "0 */6 * * *"   # var 6:e timme
+  schedule:
+    # Måndagar 06:15 Stockholm under sommartid (CEST ≈ mars–oktober)
+    - cron: "15 4 * 3-10 1"
+    # Måndagar 06:15 Stockholm under vintertid (CET ≈ november–februari)
+    - cron: "15 5 * 11,12,1,2 1"
   workflow_dispatch: # så du kan köra manuellt
 
 jobs:
