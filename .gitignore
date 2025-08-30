@@ -8,3 +8,64 @@ dist/
 # OS-specifikt
 .DS_Store
 Thumbs.db
+
+
+# HELPER
+# supabaseClient
+# import "dotenv/config";
+# import { createClient } from "@supabase/supabase-js";
+
+# const url = process.env.SUPABASE_URL;
+# const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+# if (!url || !serviceKey) {
+#   throw new Error("Saknar SUPABASE_URL eller SUPABASE_SERVICE_ROLE_KEY");
+# }
+
+# export const supabase = createClient(url, serviceKey, {
+#   auth: { autoRefreshToken: false, persistSession: false },
+# });
+
+
+
+# // scrapeAll
+# import "dotenv/config";
+# import { supabase } from "../lib/supabaseClient.js";
+# import scrapeHemkop from "../scrapers/scrapeHemkop.js";
+# import scrapeCityGross from "../scrapers/scrapeCityGross.js";
+
+# process.env.BOT_USER_AGENT ??= "SimpleScraper/1.0";
+# process.env.BOT_FROM ??= "linusigelstrom@gmail.com";
+# process.env.BOT_COMMENT ??=
+#   "Hobbyprojekt för att lära mig och förstå kod bättre, för att sedan försöka landa ett jobb";
+
+# async function main() {
+#   const { error: resetErr } = await supabase.rpc("reset_products");
+#   if (resetErr) {
+#     console.error("Kunde inte tömma tabellen:", resetErr.message);
+#     process.exit(1);
+#   }
+#   console.log("Befintliga produkter rensade..");
+
+#   const hemkopProducts = await scrapeHemkop();
+#   const cityGrossProducts = await scrapeCityGross();
+
+#   const allProducts = [...hemkopProducts, ...cityGrossProducts];
+#   const { error: insertError } = await supabase
+#     .from("products")
+#     .insert(allProducts);
+
+#   if (insertError) {
+#     console.error("Fel vid insättning:", insertError.message);
+#     process.exit(1);
+#   }
+
+#   console.log(
+#     `Insättning lyckades - totalt ${allProducts.length} produkter insatta.`
+#   );
+# }
+
+# main().catch((err) => {
+#   console.error("Något gick fel i main():", err?.stack || err?.message || err);
+#   process.exit(1);
+# });
