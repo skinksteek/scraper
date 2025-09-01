@@ -21,23 +21,63 @@ export default async function scrapeHemkop() {
     timeout: 90000,
     waitUntil: "domcontentloaded",
   });
-  const containers = await page.$$(
-    '[data-testid="vertical-product-container"]'
-  );
-  console.log("Antal containers hittade direkt:", containers.length);
+  // Hemköp gjorde om sin hemsida. Nu är det en "ladda fler"-knapp istället för att bara scrolla neråt.
+  async function clickLoadMoreUntilDone(maxRounds = 200) {
+    let prevCount = 0;
+    for (let i = 0; i < maxRounds; i++) {
+      // Räkna hur många produkter vi har just nu
+      const beforeCount = await page.$$eval(
+        '[data-testid="vertical-product-container"]',
+        (els) => els.length
+      );
 
-  // Startar en loop som körs tills inga fler produkter laddas in
-  // // loopen fortsätter att scrolla neråt för att ladda in samtliga produkter,
-  // // tills att det inte går att scrolla mer
+      // Scrolla till botten så knappen renderas om den är lazy
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(400);
 
-  let prevH = 0;
-  while (true) {
-    const h = await page.evaluate(() => document.body.scrollHeight);
-    if (h === prevH) break;
-    prevH = h;
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(1200);
+      // Hitta knappen
+      const loadMore = page.getByRole("button", { name: /visa fler/i });
+      const visible = await loadMore.isVisible().catch(() => false);
+      const disabled = visible
+        ? await loadMore.isDisabled().catch(() => false)
+        : true;
+
+      if (!visible || disabled) {
+        // ingen mer knapp => klart
+        break;
+      }
+
+      // Klicka och vänta på att fler kort dyker upp ELLER att knappen försvinner
+      await Promise.all([
+        loadMore.click(),
+        // Vänta på att antalet produkter ökar eller timeout
+        page
+          .waitForFunction(
+            (sel, prev) => document.querySelectorAll(sel).length > prev,
+            { timeout: 15000 },
+            '[data-testid="vertical-product-container"]',
+            beforeCount
+          )
+          .catch(() => null),
+      ]);
+
+      // (Valfritt) ge nätverket lite andrum
+      await page.waitForLoadState("networkidle").catch(() => {});
+      await page.waitForTimeout(300);
+
+      const afterCount = await page.$$eval(
+        '[data-testid="vertical-product-container"]',
+        (els) => els.length
+      );
+      // Om inget ökar trots klick – prova ett varv till; om två varv i rad ingen ökning -> avbryt
+      if (afterCount === beforeCount) {
+        if (prevCount === afterCount) break;
+      }
+      prevCount = afterCount;
+    }
   }
+
+  await clickLoadMoreUntilDone();
 
   const rawProducts = await page.$$eval(
     '[data-testid="vertical-product-container"]',
