@@ -36,7 +36,7 @@ export default async function scrapeCityGross() {
     });
 
     const appeared = await page
-      .waitForSelector(".product-card-container", { timeout: 5000 })
+      .waitForSelector(".product-card-container", { timeout: 10000 })
       .catch(() => null);
 
     if (!appeared) {

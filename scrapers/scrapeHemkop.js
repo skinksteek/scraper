@@ -17,7 +17,7 @@ export default async function scrapeHemkop() {
   });
   const page = await context.newPage();
 
-  await page.goto("https://www.hemkop.se/artikel/alltid-bra-pris", {
+  await page.goto("https://www.hemkop.se/veckans-erbjudanden", {
     timeout: 60000,
     waitUntil: "domcontentloaded",
   });
