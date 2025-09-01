@@ -18,9 +18,13 @@ export default async function scrapeHemkop() {
   const page = await context.newPage();
 
   await page.goto("https://www.hemkop.se/veckans-erbjudanden", {
-    timeout: 60000,
+    timeout: 90000,
     waitUntil: "domcontentloaded",
   });
+  const containers = await page.$$(
+    '[data-testid="vertical-product-container"]'
+  );
+  console.log("Antal containers hittade direkt:", containers.length);
 
   // Startar en loop som körs tills inga fler produkter laddas in
   // // loopen fortsätter att scrolla neråt för att ladda in samtliga produkter,
