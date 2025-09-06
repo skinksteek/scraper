@@ -23,5 +23,8 @@
     "dotenv": "^16.6.0",
     "node-fetch": "^3.3.2",
     "puppeteer-core": "^24.19.0"
+  },
+  "devDependencies": {
+    "vercel": "^47.0.5"
   }
 }

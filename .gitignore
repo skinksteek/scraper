@@ -69,3 +69,4 @@ Thumbs.db
 #   console.error("Något gick fel i main():", err?.stack || err?.message || err);
 #   process.exit(1);
 # });
+.vercel
