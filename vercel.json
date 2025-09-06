@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     { "path": "/api/scrape", "schedule": "0 7 * * 1" }
-  ]
+  ],
+  "functions": {
+    "api/scrape.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
 }

@@ -1,12 +1,16 @@
 import { chromium as playwrightChromium } from "playwright-core";
 import chromium from "@sparticuz/chromium";
 
+// Rekommenderade toggles för serverless
+chromium.setHeadlessMode = true; // säkerställer headless
+chromium.setGraphicsMode = false; // disable GPU/webgl
+
 export async function launchBrowser() {
-  // På Vercel finns en headless Chromium med hjälp av @sparticuz/chromium
-  const isServerless = !!process.env.AWS_REGION || !!process.env.VERCEL;
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_REGION;
+
   return await playwrightChromium.launch({
-    args: isServerless ? chromium.args : [],
+    headless: true,
     executablePath: isServerless ? await chromium.executablePath() : undefined,
-    headless: isServerless ? chromium.headless : true,
+    args: isServerless ? chromium.args : [],
   });
 }
