@@ -1,67 +1,53 @@
-import { chromium } from "playwright";
+import { launchBrowser } from "./_browser.js";
 import { parsePriceSv } from "./utils/price.js";
 
 export default async function scrapeHemkop() {
-  const browser = await chromium.launch({ headless: true });
-
-  const uaBase = process.env.BOT_USER_AGENT || "SimpleScraper/1.0";
-  const from = process.env.BOT_FROM || "linusigelstrom@gmail.com";
-  const note =
-    process.env.BOT_COMMENT ||
-    "Hobbyprojekt för att lära mig och förstå kod bättre, för att sedan försöka landa ett jobb";
-
+  const browser = await launchBrowser();
   const context = await browser.newContext({
-    userAgent: `${uaBase} (+mailto:${from}; purpose=${note}) Playwright`,
-    extraHTTPHeaders: from ? { From: from } : {},
+    userAgent: `${
+      process.env.BOT_USER_AGENT || "SimpleScraper/1.0"
+    } Playwright`,
+    extraHTTPHeaders: process.env.BOT_FROM
+      ? { From: process.env.BOT_FROM }
+      : {},
     locale: "sv-SE",
   });
   const page = await context.newPage();
 
   await page.goto("https://www.hemkop.se/veckans-erbjudanden", {
-    timeout: 90000,
+    timeout: 90_000,
     waitUntil: "domcontentloaded",
   });
-  // Hemköp gjorde om sin hemsida. Nu är det en "ladda fler"-knapp istället för att bara scrolla neråt.
+
   async function clickLoadMoreUntilDone(maxRounds = 200) {
     let prevCount = 0;
     for (let i = 0; i < maxRounds; i++) {
-      // Räkna hur många produkter vi har just nu
       const beforeCount = await page.$$eval(
         '[data-testid="vertical-product-container"]',
         (els) => els.length
       );
-
-      // Scrolla till botten så knappen renderas om den är lazy
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       await page.waitForTimeout(400);
 
-      // Hitta knappen
       const loadMore = page.getByRole("button", { name: /visa fler/i });
       const visible = await loadMore.isVisible().catch(() => false);
       const disabled = visible
         ? await loadMore.isDisabled().catch(() => false)
         : true;
+      if (!visible || disabled) break;
 
-      if (!visible || disabled) {
-        // ingen mer knapp => klart
-        break;
-      }
-
-      // Klicka och vänta på att fler kort dyker upp ELLER att knappen försvinner
       await Promise.all([
         loadMore.click(),
-        // Vänta på att antalet produkter ökar eller timeout
         page
           .waitForFunction(
             (sel, prev) => document.querySelectorAll(sel).length > prev,
-            { timeout: 15000 },
+            { timeout: 15_000 },
             '[data-testid="vertical-product-container"]',
             beforeCount
           )
           .catch(() => null),
       ]);
 
-      // (Valfritt) ge nätverket lite andrum
       await page.waitForLoadState("networkidle").catch(() => {});
       await page.waitForTimeout(300);
 
@@ -69,7 +55,6 @@ export default async function scrapeHemkop() {
         '[data-testid="vertical-product-container"]',
         (els) => els.length
       );
-      // Om inget ökar trots klick – prova ett varv till; om två varv i rad ingen ökning -> avbryt
       if (afterCount === beforeCount) {
         if (prevCount === afterCount) break;
       }
@@ -92,16 +77,13 @@ export default async function scrapeHemkop() {
             /(ca)(\d+)/gi,
             "$1 $2"
           ) ?? null;
-
         const priceText = qt('[data-testid="price-text"]');
-
         const compareOrdinaryPrice =
           qt('[data-testid="compare-price"]') ||
           (Array.from(item.querySelectorAll("*"))
             .map((el) => el.textContent?.trim() || "")
             .find((t) => /^jfr\s*pris/i.test(t)) ??
             null);
-
         const priceMultipleItems =
           Array.from(item.querySelectorAll("*"))
             .map((el) => el.textContent?.trim() || "")
@@ -125,7 +107,6 @@ export default async function scrapeHemkop() {
       })
   );
 
-  // Parsar till rätt format för supabase med hjälp av parsePriceSv (./utils/price.js)
   const products = rawProducts.map((p) => {
     const price = parsePriceSv(p.priceText);
     const abs = (href) => {
@@ -135,11 +116,10 @@ export default async function scrapeHemkop() {
         return href || null;
       }
     };
-
     return {
       name: p.name,
       volume: p.volume,
-      price, // parsat värde
+      price,
       compareOrdinaryPrice: p.compareOrdinaryPrice,
       priceMultipleItems: p.priceMultipleItems,
       productURL: abs(p.productURL),
@@ -148,7 +128,6 @@ export default async function scrapeHemkop() {
     };
   });
 
-  // Märkte att scrapingen fick i vissa fall med sig dubletter, detta förhindrar detta
   const uniqueProducts = Array.from(
     new Map(
       products.map((p) => [
@@ -159,7 +138,6 @@ export default async function scrapeHemkop() {
   );
 
   console.log(`Antal Hemköp produkter hittade: ${uniqueProducts.length}`);
-
   await context.close();
   await browser.close();
   return uniqueProducts;

@@ -11,12 +11,14 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "citygross": "node scrapers/scrapeCityGross.js",
     "hemkop": "node scrapers/scrapeHemkop.js",
-    "scrape": "node jobs/scrapeAll.js"
+    "scrape": "node jobs/scrapeAll.js",
+    "scrape-local": "node jobs/scrapeLocally.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@sparticuz/chromium": "^109.0.5",
     "@supabase/supabase-js": "^2.50.2",
     "dotenv": "^16.6.0",
     "node-fetch": "^3.3.2",

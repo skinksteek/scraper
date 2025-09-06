@@ -2,35 +2,33 @@ import { supabase } from "../lib/supabaseClient.js";
 import scrapeHemkop from "../scrapers/scrapeHemkop.js";
 import scrapeCityGross from "../scrapers/scrapeCityGross.js";
 
-async function main() {
+export async function runScrapeAll() {
   process.env.BOT_USER_AGENT ||= "SimpleScraper/1.0";
   process.env.BOT_FROM ||= "linusigelstrom@gmail.com";
   process.env.BOT_COMMENT ||=
     "Hobbyprojekt för att lära mig och förstå kod bättre, för att sedan försöka landa ett jobb";
 
-  const { error } = await supabase.rpc("reset_products");
-  if (error) {
-    console.error("Kunde inte tömma tabellen:", error.message);
-    return;
-  }
+  // 1) Rensa tabellen
+  const { error: resetErr } = await supabase.rpc("reset_products");
+  if (resetErr)
+    throw new Error(`Kunde inte tömma tabellen: ${resetErr.message}`);
   console.log("Befintliga produkter rensade..");
 
-  const hemkopProducts = await scrapeHemkop();
-  const cityGrossProducts = await scrapeCityGross();
+  // 2) Scrapa parallellt (snabbare, bättre chans att hålla dig inom timeout)
+  const [hemkopProducts, cityGrossProducts] = await Promise.all([
+    scrapeHemkop(),
+    scrapeCityGross(),
+  ]);
 
+  // 3) Skriv in
   const allProducts = [...hemkopProducts, ...cityGrossProducts];
-  const { error: insertError } = await supabase
+  const { error: insertErr } = await supabase
     .from("products")
     .insert(allProducts);
-  if (insertError) {
-    console.error("Fel vid insättning:", insertError.message);
-  } else {
-    console.log(
-      `Insättning lyckades - totalt ${allProducts.length} produkter insatta.`
-    );
-  }
-}
+  if (insertErr) throw new Error(`Fel vid insättning: ${insertErr.message}`);
 
-main().catch((err) => {
-  console.error("Något gick fel i main():", err.message);
-});
+  console.log(
+    `Insättning lyckades - totalt ${allProducts.length} produkter insatta.`
+  );
+  return allProducts.length;
+}

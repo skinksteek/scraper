@@ -1,22 +1,17 @@
-import { chromium } from "playwright";
+import { launchBrowser } from "./_browser.js";
 
 export default async function scrapeCityGross() {
-  const browser = await chromium.launch({ headless: true });
-
-  const uaBase = process.env.BOT_USER_AGENT || "SimpleScraper/1.0";
-  const from = process.env.BOT_FROM || "you@example.com";
-  const note =
-    process.env.BOT_COMMENT ||
-    "Hobbyprojekt för att lära mig och förstå kod bättre, för att sedan försöka landa ett jobb";
-
-  const chromeUA =
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
+  const browser = await launchBrowser();
   const context = await browser.newContext({
-    userAgent: `${chromeUA} ${uaBase}`,
+    userAgent:
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 " +
+      (process.env.BOT_USER_AGENT || "SimpleScraper/1.0"),
     extraHTTPHeaders: {
-      ...(from ? { From: from } : {}),
-      "X-Bot-Purpose": encodeURIComponent(note).slice(0, 200),
+      ...(process.env.BOT_FROM ? { From: process.env.BOT_FROM } : {}),
+      "X-Bot-Purpose": encodeURIComponent(process.env.BOT_COMMENT || "").slice(
+        0,
+        200
+      ),
     },
     locale: "sv-SE",
   });
@@ -31,44 +26,35 @@ export default async function scrapeCityGross() {
   for (let pageNum = 1; pageNum <= LAST_PAGE; pageNum++) {
     const url = pageNum === 1 ? BASE_URL : `${BASE_URL}?page=${pageNum}`;
 
-    await page.goto(url, {
-      waitUntil: "domcontentloaded",
-    });
+    await page.goto(url, { waitUntil: "domcontentloaded" });
 
     const appeared = await page
-      .waitForSelector(".product-card-container", { timeout: 10000 })
+      .waitForSelector(".product-card-container", { timeout: 10_000 })
       .catch(() => null);
 
     if (!appeared) {
       const hasCards = await page.$(".product-card-container");
       if (!hasCards) {
-        console.log(
-          `Sida ${pageNum}: inga .product-card-container (tom sida). Stoppar här.`
-        );
+        console.log(`Sida ${pageNum}: inga .product-card-container – stoppar.`);
         break;
       }
     }
 
     let previousCount = 0;
-    let maxTries = 5;
     let tries = 0;
 
-    while (tries < maxTries) {
+    while (tries < 5) {
       const currentCount = await page.$$eval(
         ".product-card-container",
         (els) => els.length
       );
-
       if (currentCount > previousCount) {
         previousCount = currentCount;
         tries = 0;
       } else {
         tries++;
       }
-
-      await page.evaluate(() => {
-        window.scrollBy(0, window.innerHeight);
-      });
+      await page.evaluate(() => window.scrollBy(0, window.innerHeight));
       await page.waitForTimeout(1000);
     }
 
@@ -96,19 +82,11 @@ export default async function scrapeCityGross() {
           if (majorEl) price = (majorEl.textContent || "").trim();
         }
 
-        let compareOrdinaryPrice =
-          item
-            .querySelector(".push-to-bottom")
-            ?.innerText.replace(/[\n\r\t\\]/g, "")
-            .replace(/(Jfr\s*pris)/i, "\n$1") ?? null;
-
         const img = item.querySelector("img");
         let imageURL = null;
-
         if (img) {
           const src = img.getAttribute("src");
           const srcset = img.getAttribute("srcset");
-
           if (src) {
             imageURL = src.startsWith("/")
               ? "https://www.citygross.se" + src
@@ -119,11 +97,6 @@ export default async function scrapeCityGross() {
               ? "https://www.citygross.se" + firstSrc
               : firstSrc;
           }
-
-          if (!imageURL) {
-            console.log("Saknar imageURL för produkt:", name);
-            console.log("IMG HTML:", img.outerHTML);
-          }
         }
 
         return {
@@ -131,7 +104,11 @@ export default async function scrapeCityGross() {
           price,
           store: "CityGross",
           volume,
-          compareOrdinaryPrice,
+          compareOrdinaryPrice:
+            item
+              .querySelector(".push-to-bottom")
+              ?.innerText.replace(/[\n\r\t\\]/g, "")
+              .replace(/(Jfr\s*pris)/i, "\n$1") ?? null,
           imageURL,
           priceMultipleItems,
           productURL,
@@ -152,7 +129,3 @@ export default async function scrapeCityGross() {
   await browser.close();
   return uniqueProducts;
 }
-
-scrapeCityGross().catch((err) => {
-  console.error("Fel under scraping:", err.message);
-});
