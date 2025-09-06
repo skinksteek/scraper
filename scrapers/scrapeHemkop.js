@@ -1,18 +1,20 @@
 import { launchBrowser } from "./_browser.js";
-import { parsePriceSv } from "./utils/price.js";
+import { parsePriceSv } from "../utils/price.js";
 
 export default async function scrapeHemkop() {
   const browser = await launchBrowser();
-  const context = await browser.newContext({
-    userAgent: `${
-      process.env.BOT_USER_AGENT || "SimpleScraper/1.0"
-    } Playwright`,
-    extraHTTPHeaders: process.env.BOT_FROM
-      ? { From: process.env.BOT_FROM }
-      : {},
-    locale: "sv-SE",
-  });
-  const page = await context.newPage();
+  const page = await browser.newPage();
+
+  // headers/UA i Puppeteer:
+  await page.setUserAgent(
+    `${process.env.BOT_USER_AGENT || "SimpleScraper/1.0"} Playwright`
+  );
+  if (process.env.BOT_FROM) {
+    await page.setExtraHTTPHeaders({ From: process.env.BOT_FROM });
+  }
+  // locale: sätt via emulate
+  await page.emulateTimezone("Europe/Stockholm"); // valfritt
+  await page.setViewport({ width: 1280, height: 800 });
 
   await page.goto("https://www.hemkop.se/veckans-erbjudanden", {
     timeout: 90_000,
@@ -138,7 +140,7 @@ export default async function scrapeHemkop() {
   );
 
   console.log(`Antal Hemköp produkter hittade: ${uniqueProducts.length}`);
-  await context.close();
+  await page.close();
   await browser.close();
   return uniqueProducts;
 }
