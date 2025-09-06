@@ -1,5 +1,5 @@
 import { launchBrowser } from "./_browser.js";
-import { parsePriceSv } from "../utils/price.js";
+import { parsePriceSv } from "./utils/price.js";
 
 export default async function scrapeHemkop() {
   const browser = await launchBrowser();
