@@ -1,44 +1,48 @@
+// scrapers/scrapeHemkop.js
 import { launchBrowser } from "./_browser.js";
-import { parsePriceSv } from "./utils/price.js";
+import { parsePriceSv } from "../utils/price.js";
 
 export default async function scrapeHemkop() {
   const browser = await launchBrowser();
   const page = await browser.newPage();
 
+  // Lätt UA + headers (valfritt men bra etikett)
   await page.setUserAgent(process.env.BOT_USER_AGENT || "SimpleScraper/1.0");
   if (process.env.BOT_FROM) {
     await page.setExtraHTTPHeaders({ From: process.env.BOT_FROM });
   }
-  await page.setViewport({ width: 1280, height: 800 });
 
   await page.goto("https://www.hemkop.se/veckans-erbjudanden", {
     timeout: 90_000,
     waitUntil: "domcontentloaded",
   });
 
-  // Klicka på "Visa fler" tills alla produkter är laddade
+  // Klicka "Visa fler" tills inga fler produkter laddas
   while (true) {
-    const loadMore = await page.$('button:has-text("Visa fler")');
-    if (!loadMore) break;
-
     const before = await page.$$eval(
       '[data-testid="vertical-product-container"]',
       (els) => els.length
     );
 
-    await loadMore.click().catch(() => {});
-    const loaded = await page
+    const buttons = await page.$x("//button[contains(., 'Visa fler')]");
+    if (!buttons.length) break;
+
+    await buttons[0].click().catch(() => {});
+    // Vänta tills fler kort dyker upp eller avbryt om inget händer
+    const grew = await page
       .waitForFunction(
         (sel, prev) => document.querySelectorAll(sel).length > prev,
-        {},
+        { timeout: 15_000 },
         '[data-testid="vertical-product-container"]',
         before
       )
-      .catch(() => null);
-    if (!loaded) break;
+      .then(() => true)
+      .catch(() => false);
+
+    if (!grew) break;
   }
 
-  // Extrahera produkter
+  // Extrahera rådata från varje produktkort
   const rawProducts = await page.$$eval(
     '[data-testid="vertical-product-container"]',
     (items) =>
@@ -50,7 +54,7 @@ export default async function scrapeHemkop() {
           name: qt('[data-testid="product-title"]'),
           volume: qt('[data-testid="display-volume"]'),
           priceText: qt('[data-testid="price-text"]'),
-          compareOrdinaryPrice: qt('[data-testid="compare-price"]'),
+          compareOrdinaryPrice: qt('[data-testid="compare-price"]') || null,
           priceMultipleItems:
             Array.from(item.querySelectorAll("*"))
               .map((el) => el.textContent?.trim() || "")
@@ -61,18 +65,29 @@ export default async function scrapeHemkop() {
       })
   );
 
-  // Rensa + formatera
-  const products = rawProducts.map((p) => ({
-    name: p.name,
-    volume: p.volume,
-    price: parsePriceSv(p.priceText),
-    compareOrdinaryPrice: p.compareOrdinaryPrice,
-    priceMultipleItems: p.priceMultipleItems,
-    productURL: p.productURL,
-    imageURL: p.imageURL,
-    store: "Hemköp",
-  }));
+  // Mappa till ditt slutliga format
+  const products = rawProducts.map((p) => {
+    const abs = (href) => {
+      try {
+        return href ? new URL(href, "https://www.hemkop.se").href : null;
+      } catch {
+        return href || null;
+      }
+    };
 
+    return {
+      name: p.name,
+      volume: p.volume,
+      price: parsePriceSv(p.priceText),
+      compareOrdinaryPrice: p.compareOrdinaryPrice,
+      priceMultipleItems: p.priceMultipleItems,
+      productURL: abs(p.productURL),
+      imageURL: abs(p.imageURL),
+      store: "Hemköp",
+    };
+  });
+
+  // Deduplicera
   const uniqueProducts = Array.from(
     new Map(
       products.map((p) => [
