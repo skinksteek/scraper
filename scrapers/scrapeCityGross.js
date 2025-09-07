@@ -2,6 +2,37 @@ import { launchBrowser } from "./_browser.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+async function gotoWithRetry(page, url, tries = 3) {
+  for (let i = 1; i <= tries; i++) {
+    try {
+      const resp = await page.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: 60_000,
+      });
+      if (!resp || !resp.ok()) throw new Error(`HTTP ${resp?.status()}`);
+      return;
+    } catch {
+      if (i === tries) throw new Error(`goto failed: ${url}`);
+      await sleep(800 * i); // enkel backoff
+    }
+  }
+}
+
+async function tryAcceptConsent(page) {
+  try {
+    await page.evaluate(() => {
+      const btn = Array.from(
+        document.querySelectorAll('button,[role="button"],.btn')
+      ).find((b) =>
+        /acceptera|godkänn|tillåt|ok|jag förstår/i.test(
+          (b.textContent || "").toLowerCase()
+        )
+      );
+      if (btn) btn.click();
+    });
+  } catch {}
+}
+
 export default async function scrapeCityGross() {
   const browser = await launchBrowser();
   const page = await browser.newPage();
@@ -12,37 +43,41 @@ export default async function scrapeCityGross() {
     `${chromeUA} ${process.env.BOT_USER_AGENT || "SimpleScraper/1.0"}`
   );
 
-  const headers = {};
+  const headers = {
+    "Accept-Language": "sv-SE,sv;q=0.9",
+  };
   if (process.env.BOT_FROM) headers.From = process.env.BOT_FROM;
   if (process.env.BOT_COMMENT) {
     headers["X-Bot-Purpose"] = encodeURIComponent(
       process.env.BOT_COMMENT
     ).slice(0, 200);
   }
-  if (Object.keys(headers).length) await page.setExtraHTTPHeaders(headers);
+  await page.setExtraHTTPHeaders(headers);
 
   const BASE_URL = "https://www.citygross.se/matvaror/veckans-erbjudande";
-  const LAST_PAGE = 15;
   const products = [];
 
-  for (let pageNum = 1; pageNum <= LAST_PAGE; pageNum++) {
+  for (let pageNum = 1; ; pageNum++) {
     const url = pageNum === 1 ? BASE_URL : `${BASE_URL}?page=${pageNum}`;
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    await gotoWithRetry(page, url);
+    await tryAcceptConsent(page);
 
-    const found = await page.$(".product-card-container");
-    if (!found) break;
+    // Vänta tills minst några kort finns (om inget händer, gå vidare/bryt)
+    await page
+      .waitForFunction(
+        () => document.querySelectorAll(".product-card-container").length >= 6,
+        { timeout: 15_000 }
+      )
+      .catch(() => {});
 
-    // Scrolla för att ladda in fler produkter
-    let prev = 0;
-    for (let i = 0; i < 5; i++) {
-      const count = await page.$$eval(
-        ".product-card-container",
-        (els) => els.length
-      );
-      if (count <= prev) break;
-      prev = count;
+    // Finns det några kort alls?
+    const hasCards = await page.$(".product-card-container");
+    if (!hasCards) break;
+
+    // Scrolla lugnt (ge sidan tid att ladda in fler kort)
+    for (let i = 0; i < 8; i++) {
       await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-      await sleep(1000); // ersätter page.waitForTimeout(1000)
+      await sleep(600 + Math.random() * 600);
     }
 
     const pageProducts = await page.$$eval(".product-card-container", (items) =>
@@ -74,16 +109,18 @@ export default async function scrapeCityGross() {
         if (imageURL?.startsWith("/"))
           imageURL = "https://www.citygross.se" + imageURL;
 
+        const compareOrdinaryPrice =
+          item
+            .querySelector(".push-to-bottom")
+            ?.innerText.replace(/[\n\r\t\\]/g, "")
+            ?.replace(/(Jfr\s*pris)/i, "\n$1") ?? null;
+
         return {
           name,
           price,
           store: "CityGross",
           volume,
-          compareOrdinaryPrice:
-            item
-              .querySelector(".push-to-bottom")
-              ?.innerText.replace(/[\n\r\t\\]/g, "")
-              ?.replace(/(Jfr\s*pris)/i, "\n$1") ?? null,
+          compareOrdinaryPrice,
           imageURL,
           priceMultipleItems,
           productURL,
@@ -92,6 +129,12 @@ export default async function scrapeCityGross() {
     );
 
     products.push(...pageProducts);
+
+    // Om denna sida gav nästan inget, anta att vi är klara
+    if (pageProducts.length < 5) break;
+
+    // Liten random-paus mellan sidorna
+    await sleep(400 + Math.random() * 800);
   }
 
   const uniqueProducts = Array.from(
