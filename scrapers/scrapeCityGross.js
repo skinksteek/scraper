@@ -110,7 +110,8 @@ export default async function scrapeCityGross() {
           if (major) price = major;
         }
         // Hämta bildlänk och gör absolut om den är relativ
-        let imageURL = item.querySelector("img")?.getAttribute("src") || null;
+        let imageURL =
+          item.querySelector("img")?.getAttribute("srcset") || null;
         if (imageURL?.startsWith("/"))
           imageURL = "https://www.citygross.se" + imageURL;
         // Hämta jämförpris om det finns
