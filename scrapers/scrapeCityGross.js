@@ -88,47 +88,64 @@ export default async function scrapeCityGross() {
     // Extrahera produktdata från sidan
     const pageProducts = await page.$$eval(".product-card-container", (items) =>
       items.map((item) => {
-        const name = item.querySelector("h3")?.innerText.trim() ?? null;
-        const volume = item.querySelector("p")?.innerText.trim() ?? null;
-        const productURL = item.querySelector("a")?.href ?? null;
-        const priceBox = item.querySelector(".price-tag-container");
-        let price = null;
-        let priceMultipleItems = null;
-        if (priceBox) {
-          // Hitta ev. "2 för 30 kr"-text
-          const multi = Array.from(priceBox.querySelectorAll("*")).find((el) =>
-            /\d+\s*f[öo]r/i.test(el.textContent || "")
-          );
-          if (multi) {
-            const m = (multi.textContent || "").match(/\d+\s*f[öo]r/i);
-            priceMultipleItems = m ? m[0].trim() : null;
+        // Hjälpare för detta kort
+        const q = (sel) => item.querySelector(sel); // q = query
+        const qa = (sel) => Array.from(item.querySelectorAll(sel)); // qa = query all
+        const qt = (sel) => q(sel)?.textContent?.trim() ?? null; // qt = query text
+        const abs = (href) => {
+          // abs = absolutize URL
+          try {
+            return href ? new URL(href, "https://www.citygross.se").href : null;
+          } catch {
+            return href || null;
           }
-          // Hämta huvudpriset (t.ex. "30")
-          const major = Array.from(priceBox.querySelectorAll("span,div,strong"))
-            .map((el) => (el.textContent || "").trim())
-            .find((txt) => /^\d+$/.test(txt));
-          if (major) price = major;
-        }
-        // Hämta bildlänk och gör absolut om den är relativ
-        let imageURL =
-          item.querySelector("img")?.getAttribute("srcset") || null;
-        if (imageURL?.startsWith("/"))
-          imageURL = "https://www.citygross.se" + imageURL;
-        // Hämta jämförpris om det finns
+        };
+
+        const name = qt("h3");
+        const volume = qt("p");
+        const productURL = abs(q("a")?.getAttribute("href"));
+
+        // Prisruta
+        const priceBox = q(".price-tag-container");
+
+        // “2 för 30 kr”-text (om det finns)
+        const priceMultipleItems = priceBox
+          ? qa(".price-tag-container *")
+              .map((el) => el.textContent?.trim() || "")
+              .find((t) => /\d+\s*f[öo]r/i.test(t)) || null
+          : null;
+
+        // Huvudpris (t.ex. "30")
+        const price = priceBox
+          ? qa(
+              ".price-tag-container span, .price-tag-container div, .price-tag-container strong"
+            )
+              .map((el) => (el.textContent || "").trim())
+              .find((txt) => /^\d+$/.test(txt)) || null
+          : null;
+
+        // Bild (srcset eller src) → absolut URL
+        const imgAttr =
+          q("img")?.getAttribute("srcset") ||
+          q("img")?.getAttribute("src") ||
+          null;
+        const imageURL = abs(imgAttr);
+
+        // Jämförpris (städad)
         const compareOrdinaryPrice =
-          item
-            .querySelector(".push-to-bottom")
-            ?.innerText.replace(/[\n\r\t\\]/g, "")
+          q(".push-to-bottom")
+            ?.innerText?.replace(/[\n\r\t\\]/g, "")
             ?.replace(/(Jfr\s*pris)/i, "\n$1") ?? null;
+
         return {
           name,
-          price,
-          store: "CityGross",
           volume,
+          price, // sträng, ex "30"
           compareOrdinaryPrice,
-          imageURL,
-          priceMultipleItems,
+          priceMultipleItems, // ex "2 för 30 kr"
           productURL,
+          imageURL,
+          store: "CityGross",
         };
       })
     );
