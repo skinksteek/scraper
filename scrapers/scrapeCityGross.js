@@ -1,4 +1,7 @@
+// scrapers/scrapeCityGross.js
 import { launchBrowser } from "./_browser.js";
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export default async function scrapeCityGross() {
   const browser = await launchBrowser();
@@ -17,9 +20,7 @@ export default async function scrapeCityGross() {
       process.env.BOT_COMMENT
     ).slice(0, 200);
   }
-  if (Object.keys(headers).length) {
-    await page.setExtraHTTPHeaders(headers);
-  }
+  if (Object.keys(headers).length) await page.setExtraHTTPHeaders(headers);
 
   const BASE_URL = "https://www.citygross.se/matvaror/veckans-erbjudande";
   const LAST_PAGE = 15;
@@ -42,7 +43,7 @@ export default async function scrapeCityGross() {
       if (count <= prev) break;
       prev = count;
       await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-      await page.waitForTimeout(1000);
+      await sleep(1000); // ersätter page.waitForTimeout(1000)
     }
 
     const pageProducts = await page.$$eval(".product-card-container", (items) =>
@@ -59,12 +60,13 @@ export default async function scrapeCityGross() {
           const multi = Array.from(priceBox.querySelectorAll("*")).find((el) =>
             /\d+\s*f[öo]r/i.test(el.textContent || "")
           );
-          if (multi)
-            priceMultipleItems =
-              multi.textContent.match(/\d+\s*f[öo]r/i)?.[0] ?? null;
+          if (multi) {
+            const m = (multi.textContent || "").match(/\d+\s*f[öo]r/i);
+            priceMultipleItems = m ? m[0].trim() : null;
+          }
 
           const major = Array.from(priceBox.querySelectorAll("span,div,strong"))
-            .map((el) => el.textContent?.trim() || "")
+            .map((el) => (el.textContent || "").trim())
             .find((txt) => /^\d+$/.test(txt));
           if (major) price = major;
         }
@@ -75,14 +77,17 @@ export default async function scrapeCityGross() {
 
         return {
           name,
-          volume,
           price,
+          store: "CityGross",
+          volume,
+          compareOrdinaryPrice:
+            item
+              .querySelector(".push-to-bottom")
+              ?.innerText.replace(/[\n\r\t\\]/g, "")
+              ?.replace(/(Jfr\s*pris)/i, "\n$1") ?? null,
+          imageURL,
           priceMultipleItems,
           productURL,
-          imageURL,
-          store: "CityGross",
-          compareOrdinaryPrice:
-            item.querySelector(".push-to-bottom")?.innerText.trim() || null,
         };
       })
     );
