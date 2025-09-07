@@ -1,4 +1,3 @@
-// scrapers/scrapeCityGross.js
 import { launchBrowser } from "./_browser.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

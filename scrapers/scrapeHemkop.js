@@ -1,4 +1,3 @@
-// scrapers/scrapeHemkop.js
 import { launchBrowser } from "./_browser.js";
 import { parsePriceSv } from "./utils/price.js";
 
@@ -6,7 +5,7 @@ export default async function scrapeHemkop() {
   const browser = await launchBrowser();
   const page = await browser.newPage();
 
-  // Lätt UA + headers (valfritt men bra etikett)
+  // Lätt UA + frivilliga etikett-headers
   await page.setUserAgent(process.env.BOT_USER_AGENT || "SimpleScraper/1.0");
   if (process.env.BOT_FROM) {
     await page.setExtraHTTPHeaders({ From: process.env.BOT_FROM });
@@ -18,22 +17,27 @@ export default async function scrapeHemkop() {
   });
 
   // Klicka "Visa fler" tills inga fler produkter laddas
+  const CARD_SEL = '[data-testid="vertical-product-container"]';
   while (true) {
-    const before = await page.$$eval(
-      '[data-testid="vertical-product-container"]',
-      (els) => els.length
-    );
+    const before = await page.$$eval(CARD_SEL, (els) => els.length);
 
-    const buttons = await page.$x("//button[contains(., 'Visa fler')]");
-    if (!buttons.length) break;
+    const clicked = await page.evaluate(() => {
+      const btn = Array.from(document.querySelectorAll("button")).find((b) =>
+        /visa fler/i.test(b.innerText || "")
+      );
+      if (btn) {
+        btn.click();
+        return true;
+      }
+      return false;
+    });
+    if (!clicked) break;
 
-    await buttons[0].click().catch(() => {});
-    // Vänta tills fler kort dyker upp eller avbryt om inget händer
     const grew = await page
       .waitForFunction(
         (sel, prev) => document.querySelectorAll(sel).length > prev,
         { timeout: 15_000 },
-        '[data-testid="vertical-product-container"]',
+        CARD_SEL,
         before
       )
       .then(() => true)
@@ -42,30 +46,28 @@ export default async function scrapeHemkop() {
     if (!grew) break;
   }
 
-  // Extrahera rådata från varje produktkort
-  const rawProducts = await page.$$eval(
-    '[data-testid="vertical-product-container"]',
-    (items) =>
-      items.map((item) => {
-        const q = (sel) => item.querySelector(sel);
-        const qt = (sel) => q(sel)?.textContent?.trim() ?? null;
+  // Extrahera rådata
+  const rawProducts = await page.$$eval(CARD_SEL, (items) =>
+    items.map((item) => {
+      const q = (sel) => item.querySelector(sel);
+      const qt = (sel) => q(sel)?.textContent?.trim() ?? null;
 
-        return {
-          name: qt('[data-testid="product-title"]'),
-          volume: qt('[data-testid="display-volume"]'),
-          priceText: qt('[data-testid="price-text"]'),
-          compareOrdinaryPrice: qt('[data-testid="compare-price"]') || null,
-          priceMultipleItems:
-            Array.from(item.querySelectorAll("*"))
-              .map((el) => el.textContent?.trim() || "")
-              .find((t) => /\d+\s*f[öo]r/i.test(t)) || null,
-          productURL: q("a")?.href || null,
-          imageURL: q("img")?.src || null,
-        };
-      })
+      return {
+        name: qt('[data-testid="product-title"]'),
+        volume: qt('[data-testid="display-volume"]'),
+        priceText: qt('[data-testid="price-text"]'),
+        compareOrdinaryPrice: qt('[data-testid="compare-price"]') || null,
+        priceMultipleItems:
+          Array.from(item.querySelectorAll("*"))
+            .map((el) => el.textContent?.trim() || "")
+            .find((t) => /\d+\s*f[öo]r/i.test(t)) || null,
+        productURL: q("a")?.href || null,
+        imageURL: q("img")?.src || null,
+      };
+    })
   );
 
-  // Mappa till ditt slutliga format
+  // Mappa + absolutifiera URL:er + parsa pris
   const products = rawProducts.map((p) => {
     const abs = (href) => {
       try {
@@ -74,7 +76,6 @@ export default async function scrapeHemkop() {
         return href || null;
       }
     };
-
     return {
       name: p.name,
       volume: p.volume,
